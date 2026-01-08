@@ -1,0 +1,136 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 5s
+
+rule_files:
+  - "/etc/prometheus/rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_configs:
+  # 监控 Prometheus 自己
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ['prometheus:9090']
+
+  # 监控 Alertmanager 自己
+  - job_name: "alertmanager"
+    static_configs:
+      - targets: ['alertmanager:9093']
+
+  # 监控各台服务器的 node_exporter
+  - job_name: 'nodes'
+    scrape_interval: 15s     # 统一为 15s，降低负载
+    static_configs:
+
+      # ProjectA-web
+      - targets:
+          - '10.0.1.10:9100'
+        labels:
+          project: 'ProjectA'
+          role: 'web'
+          alias: 'nginx'
+
+      # ProjectA-api
+      - targets:
+          - '10.0.1.20:9100'
+        labels:
+          project: 'ProjectA'
+          role: 'api'
+          alias: 'api-server'
+
+      # ProjectA-admin
+      - targets:
+          - '10.0.1.30:9100'
+        labels:
+          project: 'ProjectA'
+          role: 'admin'
+          alias: 'admin-server'
+
+      # ProjectA-redis
+      - targets:
+          - '10.0.1.40:9100'
+        labels:
+          project: 'ProjectA'
+          role: 'redis'
+          alias: 'redis'
+
+      # ProjectA-job
+      - targets:
+          - '10.0.1.50:9100'
+        labels:
+          project: 'ProjectA'
+          role: 'job'
+          alias: 'job-scheduler'
+
+      # ProjectA-mysql
+      - targets:
+          - '10.0.1.60:9100'
+        labels:
+          project: 'ProjectA'
+          role: 'mysql'
+          alias: 'mysql'
+
+
+
+      # ProjectB - node1
+      - targets:
+          - '10.0.2.10:9100'
+        labels:
+          project: 'ProjectB'
+          role: 'node1'
+          alias: 'node1'
+
+      # ProjectB - node2
+      - targets:
+          - '10.0.2.20:9100'
+        labels:
+          project: 'ProjectB'
+          role: 'node2'
+          alias: 'node2'
+
+      # ProjectB - node3
+      - targets:
+          - '10.0.2.30:9100'
+        labels:
+          project: 'ProjectB'
+          role: 'node3'
+          alias: 'node3'
+
+      # ProjectB - node4
+      - targets:
+          - '10.0.2.40:9100'
+        labels:
+          project: 'ProjectB'
+          role: 'node4'
+          alias: 'node4'
+
+      # ProjectB - node5
+      - targets:
+          - '10.0.2.50:9100'
+        labels:
+          project: 'ProjectB'
+          role: 'node5'
+          alias: 'node5'
+
+      # ProjectB - node6
+      - targets:
+          - '10.0.2.60:9100'
+        labels:
+          project: 'ProjectB'
+          role: 'node6'
+          alias: 'node6'
+
+
+  - job_name: 'aws-rds'
+    scrape_interval: 30s     # RDS 指标更新较慢，30s 足够
+    static_configs:
+      - targets:
+          - 'cloudwatch-exporter:9106'
+        labels:
+          project: 'ProjectD'
+          role: 'database'
+          alias: 'RDS数据仓'

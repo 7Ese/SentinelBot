@@ -1,0 +1,164 @@
+groups:
+  - name: basic-alerts
+    rules:
+      # ========= 实例宕机 / 节点无响应 =========
+      - alert: InstanceDown
+        expr: up == 0
+        for: 10s
+        labels:
+          severity: critical
+        annotations:
+          summary: "实例宕机: {{ $labels.instance }}"
+          description: "{{ $labels.project }}-{{ $labels.role }} 无法访问，{{ $labels.alias }} 进程可能已停止或服务器宕机。"
+
+      # ========= CPU 告警 =========
+      # 说明：5分钟平均 CPU 使用率 > 80% / 90%
+      - alert: HighCPUUsage
+        expr: avg by (instance) (1 - rate(node_cpu_seconds_total{mode="idle"}[5m])) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU 使用率高: {{ $labels.instance }}"
+          description: "{{ $labels.alias }} 的 CPU 使用率在过去 5 分钟内持续高于 80%。"
+
+      - alert: CriticalCPUUsage
+        expr: avg by (instance) (1 - rate(node_cpu_seconds_total{mode="idle"}[5m])) > 0.9
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CPU 使用率严重: {{ $labels.instance }}"
+          description: "{{ $labels.project }}-{{ $labels.role }} 服务器的 CPU 使用率在过去 5 分钟内持续高于 90%，需要立即检查进程与负载。"
+
+      # ========= 内存告警 =========
+      # 说明：使用 MemAvailable 计算真实可用内存比例
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "内存使用率高: {{ $labels.instance }}"
+          description: "{{ $labels.project }}-{{ $labels.role }} 服务器的内存使用率超过 85%，建议关注是否有异常进程或内存泄漏。"
+
+      - alert: CriticalMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes > 0.95
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "内存即将耗尽: {{ $labels.instance }}"
+          description: "{{ $labels.project }}-{{ $labels.role }} 的内存使用率超过 95%，系统可能随时内存不足。"
+
+      # ========= Swap（交换分区）告警 =========
+      - alert: HighSwapUsage
+        expr: (node_memory_SwapTotal_bytes - node_memory_SwapFree_bytes) / node_memory_SwapTotal_bytes > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Swap 使用率高: {{ $labels.instance }}"
+          description: "{{ $labels.project }}-{{ $labels.role }} 的 Swap 使用率超过 50%，可能存在内存压力或内存泄漏。"
+
+      # ========= 磁盘空间告警（所有分区） =========
+      # 修复说明：此处原先缩进错误，已修复。
+      # 逻辑优化：格式化 PromQL 增强可读性。
+      - alert: HighDiskUsage
+        expr: |
+          (
+            node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"} 
+            - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}
+          ) / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"} > 0.85
+          and on(instance, device, mountpoint) node_filesystem_readonly{fstype!~"tmpfs|overlay|squashfs"} == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "磁盘空间不足 (Warning): {{ $labels.mountpoint }}"
+          description: "{{ $labels.project }}-{{ $labels.role }} 所在服务器的 {{ $labels.mountpoint }} 分区磁盘使用率超过 85%。"
+
+      - alert: CriticalDiskUsage
+        expr: |
+          (
+            node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"} 
+            - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}
+          ) / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"} > 0.95
+          and on(instance, device, mountpoint) node_filesystem_readonly{fstype!~"tmpfs|overlay|squashfs"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "磁盘空间严重不足 (Critical): {{ $labels.mountpoint }}"
+          description: "{{ $labels.project }}-{{ $labels.role }} 所在服务器的 {{ $labels.mountpoint }} 分区磁盘使用率超过 95%，系统可能无法正常写入数据。"
+
+      # ========= 根分区特别关注（/） =========
+      - alert: RootDiskAlmostFull
+        expr: |
+          (
+            node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs",mountpoint="/"} 
+            - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs",mountpoint="/"}
+          ) / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs",mountpoint="/"} > 0.90
+          and on(instance, device, mountpoint) node_filesystem_readonly{fstype!~"tmpfs|overlay|squashfs",mountpoint="/"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "根分区即将写满: {{ $labels.instance }}"
+          description: "{{ $labels.project }}-{{ $labels.role }} 所在服务器的根分区（/）磁盘使用率超过 90%，请尽快清理日志或扩容，否则服务器可能宕机。"
+
+      # ========= inode（文件数量）告警 =========
+      - alert: DiskInodeUsage
+        expr: (node_filesystem_files{fstype!~"tmpfs|overlay|squashfs"} - node_filesystem_files_free{fstype!~"tmpfs|overlay|squashfs"}) / node_filesystem_files{fstype!~"tmpfs|overlay|squashfs"} > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Inode 使用率高: {{ $labels.mountpoint }}"
+          description: "{{ $labels.project }}-{{ $labels.role }} 所在服务器的 {{ $labels.mountpoint }} 分区 inode 使用率超过 85%，可能存在大量小文件或日志未清理。"
+
+      - alert: CriticalDiskInodeUsage
+        expr: (node_filesystem_files{fstype!~"tmpfs|overlay|squashfs"} - node_filesystem_files_free{fstype!~"tmpfs|overlay|squashfs"}) / node_filesystem_files{fstype!~"tmpfs|overlay|squashfs"} > 0.95
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Inode 耗尽: {{ $labels.mountpoint }}"
+          description: "{{ $labels.project }}-{{ $labels.role }} 所在服务器的的 {{ $labels.mountpoint }} 分区 inode 使用率超过 95%，系统可能无法创建新文件。"
+
+      # ========= RDS 告警 =========
+      - alert: RDSCPUHigh
+        expr: aws_rds_cpuutilization_average > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "RDS CPU 高使用率"
+          description: "实例 {{ $labels.dbinstance_identifier }} CPU 使用率已达到 {{ $value }}%"
+
+      - alert: RDSConnectionsHigh
+        expr: aws_rds_database_connections_average > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "RDS 连接数过高"
+          description: "实例 {{ $labels.dbinstance_identifier }} 活跃连接数过高（{{ $value }} 个）"
+
+      - alert: RDSStorageLow
+        expr: aws_rds_freestoragespace_average / 1024 / 1024 / 1024 < 20
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "RDS 磁盘空间不足"
+          description: "实例 {{ $labels.dbinstance_identifier }} 剩余存储空间仅 {{ $value }} GB"
+
+      - alert: RDSMemoryLow
+        expr: aws_rds_freeablememory_average < 500000000
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "RDS 内存不足"
+          description: "实例 {{ $labels.dbinstance_identifier }} 可用内存不足，只剩 {{ $value }} 字节"

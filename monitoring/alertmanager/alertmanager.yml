@@ -1,0 +1,38 @@
+global:
+  resolve_timeout: 10s
+
+route:
+  receiver: "telegram"
+  group_by: ['alertname', 'project', 'instance']
+
+  # 普通告警（默认策略）
+  group_wait: 15s
+  group_interval: 2m
+  repeat_interval: 2h
+
+  # 特殊策略：宕机告警（最重要）
+  routes:
+    - match:
+        alertname: "InstanceDown"
+      receiver: "telegram"
+      group_wait: 0s          # 宕机立即发
+      group_interval: 5s      # 恢复 5 秒内就发
+      repeat_interval: 15m    # 宕机持续时每 15 分钟提醒一次（防刷屏）
+
+    # critical 告警提速
+    - match:
+        severity: "critical"
+      receiver: "telegram"
+      repeat_interval: 30m
+
+    # 一般 warning 告警
+    - match:
+        severity: "warning"
+      receiver: "telegram"
+      repeat_interval: 2h
+
+receivers:
+  - name: 'telegram'
+    webhook_configs:
+      - url: 'http://sentinel-bot:5000/webhook'
+        send_resolved: true

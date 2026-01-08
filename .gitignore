@@ -1,0 +1,54 @@
+# 环境变量文件（包含敏感信息）
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Grafana 数据（包含敏感配置）
+monitoring/grafana/grafana.db
+monitoring/grafana/csv/
+monitoring/grafana/pdf/
+monitoring/grafana/png/
+monitoring/grafana/plugins/
+monitoring/grafana/*.db
+monitoring/grafana/*.log
+
+# Prometheus 数据
+monitoring/data/
+monitoring/prometheus/data/
+
+# 日志文件
+*.log
+logs/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# 备份文件
+*.backup
+*.bk
+*.bak
+
+# Docker
+.dockerignore
